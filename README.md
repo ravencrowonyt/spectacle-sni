@@ -4,5 +4,5 @@ Simple tray icon for Spectacle written in python.
 
 Required dependencies: python python-pydbus python-gobject libdbusmenu-glib gobject-introspection spectacle
 
-Use PKGBUILD to install via Arch based distros.
+Use AUR PKGBUILD to install via Arch based distros.
 
