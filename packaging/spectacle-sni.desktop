@@ -1,5 +1,18 @@
 [Desktop Entry]
+Categories=Utility;Graphics;
+Comment[en_US]=Tray icon (StatusNotifierItem) for Spectacle with capture menu
+Comment=Tray icon (StatusNotifierItem) for Spectacle with capture menu
+Exec=spectacle-sni
+GenericName[en_US]=
+GenericName=
+Icon=spectacle
+MimeType=
+Name[en_US]=Spectacle Tray Icon
+Name=Spectacle Tray Icon
+Path=
+StartupNotify=true
+Terminal=false
+TerminalOptions=
 Type=Application
-Name=Spectacle Tray
-Exec=/usr/bin/spectacle-sni.py
-X-KDE-autostart-after=panel
+X-KDE-SubstituteUID=false
+X-KDE-Username=
