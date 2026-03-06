@@ -6,3 +6,4 @@ Required dependencies: python python-pydbus python-gobject libdbusmenu-glib gobj
 
 Use AUR PKGBUILD to install via Arch based distros.
 
+yay -Syu spectacle-trayicon-git
