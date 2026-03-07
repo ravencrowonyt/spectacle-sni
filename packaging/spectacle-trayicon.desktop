@@ -1,7 +1,7 @@
 [Desktop Entry]
 Type=Application
 Name=Spectacle Tray Icon
-Comment=StatusNotifierItem tray icon for Spectacle with capture menu
+Comment=System tray icon for Spectacle with quick capture modes
 Exec=spectacle-trayicon
 Icon=spectacle
 Terminal=false
