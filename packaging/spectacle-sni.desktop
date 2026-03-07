@@ -1,18 +1,8 @@
 [Desktop Entry]
-Categories=Utility;Graphics;
-Comment[en_US]=Tray icon (StatusNotifierItem) for Spectacle with capture menu
-Comment=Tray icon (StatusNotifierItem) for Spectacle with capture menu
-Exec=spectacle-sni
-GenericName[en_US]=
-GenericName=
-Icon=spectacle
-MimeType=
-Name[en_US]=Spectacle Tray Icon
-Name=Spectacle Tray Icon
-Path=
-StartupNotify=true
-Terminal=false
-TerminalOptions=
 Type=Application
-X-KDE-SubstituteUID=false
-X-KDE-Username=
+Name=Spectacle Tray Icon
+Comment=StatusNotifierItem tray icon for Spectacle with capture menu
+Exec=spectacle-trayicon
+Icon=spectacle
+Terminal=false
+Categories=Utility;Graphics;
