@@ -1,0 +1,9 @@
+[Desktop Entry]
+Type=Application
+Name=Spectacle Tray Icon
+Comment=Start Spectacle Tray Icon on login
+Exec=spectacle-trayicon
+Icon=spectacle
+Terminal=false
+X-KDE-autostart-after=panel
+OnlyShowIn=KDE;
