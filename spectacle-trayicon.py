@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-# spectacle-sni.py
+# spectacle-trayicon.py
 #
 # KDE Plasma StatusNotifierItem (tray icon) for Spectacle with DBusMenu:
 # - Left-click: repeat last used mode; if none, open Spectacle UI
@@ -31,8 +31,8 @@ CONFIG_PATH = Path.home() / ".config" / "spectacle-sni.json"
 
 MODE_DEFS = [
     ("Rectangular Region", ["-r"], "region"),
-    ("Active Window",      ["-a"], "active_window"),
-    ("Full Screen",        ["-f"], "fullscreen"),
+    ("Active Window", ["-a"], "active_window"),
+    ("Full Screen", ["-f"], "fullscreen"),
 ]
 MODE_BY_KEY = {key: (label, args) for (label, args, key) in MODE_DEFS}
 MODE_KEY_BY_ARGS = {tuple(args): key for (label, args, key) in MODE_DEFS}
@@ -43,7 +43,7 @@ class State:
         self.copy_to_clipboard: bool = False
         self.include_pointer: bool = False
         self.include_decorations: bool = True
-        self.last_mode_key: str | None = None  # "region" | "active_window" | "fullscreen" | None
+        self.last_mode_key: str | None = None
 
     def last_mode_label(self) -> str:
         if self.last_mode_key and self.last_mode_key in MODE_BY_KEY:
@@ -66,7 +66,7 @@ def load_state() -> State:
         st.include_pointer = bool(data.get("include_pointer", st.include_pointer))
         st.include_decorations = bool(data.get("include_decorations", st.include_decorations))
 
-        last_mode_key = data.get("last_mode_key", None)
+        last_mode_key = data.get("last_mode_key")
         if last_mode_key in MODE_BY_KEY:
             st.last_mode_key = last_mode_key
     except FileNotFoundError:
@@ -94,7 +94,11 @@ def save_state(st: State) -> None:
 
 
 def open_spectacle_ui():
-    subprocess.Popen([SPECTACLE_BIN, "-l"], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+    subprocess.Popen(
+        [SPECTACLE_BIN, "-l"],
+        stdout=subprocess.DEVNULL,
+        stderr=subprocess.DEVNULL,
+    )
 
 
 def run_spectacle_capture(st: State, capture_args: list[str], update_last: bool = True):
@@ -111,7 +115,7 @@ def run_spectacle_capture(st: State, capture_args: list[str], update_last: bool 
         if st.include_pointer:
             cmd += ["-p"]
         if not st.include_decorations:
-            cmd += ["-e"]  # no-decoration
+            cmd += ["-e"]
     else:
         cmd += capture_args
 
@@ -134,6 +138,8 @@ class SpectacleSNI:
         <property name="IconName" type="s" access="read"/>
         <property name="ToolTip" type="(sa(iiay)ss)" access="read"/>
         <property name="Menu" type="o" access="read"/>
+
+        <signal name="NewToolTip"/>
       </interface>
     </node>
     """
@@ -150,8 +156,14 @@ class SpectacleSNI:
 
     @property
     def ToolTip(self):
-        desc = f"Left-click: last used mode (or UI)\nLast: {self._st.last_mode_label()}"
-        return ("spectacle", [], "Spectacle", desc)
+        desc = (
+            f"Left-click: last used mode (or UI)\n"
+            f"Last: {self._st.last_mode_label()}\n"
+            f"Copy to clipboard: {'On' if self._st.copy_to_clipboard else 'Off'}\n"
+            f"Include mouse pointer: {'On' if self._st.include_pointer else 'Off'}\n"
+            f"Include window decorations: {'On' if self._st.include_decorations else 'Off'}"
+        )
+        return ("spectacle", [], "Spectacle Tray Icon", desc)
 
     @property
     def Menu(self):
@@ -163,6 +175,12 @@ class SpectacleSNI:
             run_spectacle_capture(self._st, args, update_last=False)
         else:
             open_spectacle_ui()
+
+    def refresh_tooltip(self):
+        try:
+            self.NewToolTip()
+        except Exception:
+            pass
 
 
 def get_watcher(bus: SessionBus):
@@ -226,32 +244,31 @@ def add_radio_item(root, label, initial_selected: bool, on_select):
     return item
 
 
-def build_menu(menu_path: str, st: State, quit_callback):
+def build_menu(menu_path: str, st: State, quit_callback, item: SpectacleSNI):
     server = Dbusmenu.Server.new(menu_path)
 
     root = Dbusmenu.Menuitem.new()
     root.property_set("label", "root")
 
-    # New: Open UI
     add_plain_item(root, "Open Spectacle UI", open_spectacle_ui)
 
     add_separator(root)
 
-    # Radio capture modes (show last used with ✓)
     radio_items: dict[str, Dbusmenu.Menuitem] = {}
 
     def set_radio_selected(selected_key: str):
-        for key, item in radio_items.items():
-            item.property_set_int("toggle-state", 1 if key == selected_key else 0)
+        for key, radio_item in radio_items.items():
+            radio_item.property_set_int("toggle-state", 1 if key == selected_key else 0)
 
     for label, args, key in MODE_DEFS:
-        initial = (st.last_mode_key == key)
+        initial = st.last_mode_key == key
 
         def make_select_cb(_key=key, _args=args):
             def _cb():
                 st.last_mode_key = _key
                 save_state(st)
                 set_radio_selected(_key)
+                item.refresh_tooltip()
                 run_spectacle_capture(st, _args, update_last=False)
             return _cb
 
@@ -259,13 +276,24 @@ def build_menu(menu_path: str, st: State, quit_callback):
 
     add_separator(root)
 
-    # Toggles (persisted)
-    add_check_item(root, "Copy to clipboard", st.copy_to_clipboard,
-                   lambda v: (setattr(st, "copy_to_clipboard", v), save_state(st)))
-    add_check_item(root, "Include mouse pointer", st.include_pointer,
-                   lambda v: (setattr(st, "include_pointer", v), save_state(st)))
-    add_check_item(root, "Include window decorations", st.include_decorations,
-                   lambda v: (setattr(st, "include_decorations", v), save_state(st)))
+    def set_copy(v: bool):
+        st.copy_to_clipboard = v
+        save_state(st)
+        item.refresh_tooltip()
+
+    def set_pointer(v: bool):
+        st.include_pointer = v
+        save_state(st)
+        item.refresh_tooltip()
+
+    def set_decorations(v: bool):
+        st.include_decorations = v
+        save_state(st)
+        item.refresh_tooltip()
+
+    add_check_item(root, "Copy to clipboard", st.copy_to_clipboard, set_copy)
+    add_check_item(root, "Include mouse pointer", st.include_pointer, set_pointer)
+    add_check_item(root, "Include window decorations", st.include_decorations, set_decorations)
 
     add_separator(root)
 
@@ -288,9 +316,9 @@ def main():
     def quit_app():
         loop.quit()
 
-    _menu_server = build_menu(menu_path, st, quit_app)
-
     item = SpectacleSNI(menu_object_path=menu_path, st=st)
+    _menu_server = build_menu(menu_path, st, quit_app, item)
+
     bus.publish(service_name, (sni_path, item))
 
     watcher = get_watcher(bus)
