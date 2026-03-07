@@ -20,7 +20,9 @@ import json
 import os
 import subprocess
 from pathlib import Path
+
 from pydbus import SessionBus
+from pydbus.generic import signal
 
 import gi
 gi.require_version("Dbusmenu", "0.4")
@@ -34,6 +36,7 @@ MODE_DEFS = [
     ("Active Window", ["-a"], "active_window"),
     ("Full Screen", ["-f"], "fullscreen"),
 ]
+
 MODE_BY_KEY = {key: (label, args) for (label, args, key) in MODE_DEFS}
 MODE_KEY_BY_ARGS = {tuple(args): key for (label, args, key) in MODE_DEFS}
 
@@ -115,7 +118,7 @@ def run_spectacle_capture(st: State, capture_args: list[str], update_last: bool 
         if st.include_pointer:
             cmd += ["-p"]
         if not st.include_decorations:
-            cmd += ["-e"]
+            cmd += ["-e"]  # no-decoration
     else:
         cmd += capture_args
 
@@ -149,6 +152,8 @@ class SpectacleSNI:
     Title = "Spectacle"
     Status = "Active"
     IconName = "spectacle"
+
+    NewToolTip = signal()
 
     def __init__(self, menu_object_path: str, st: State):
         self._menu_path = menu_object_path
@@ -288,6 +293,7 @@ def build_menu(menu_path: str, st: State, quit_callback, item: SpectacleSNI):
 
     def set_decorations(v: bool):
         st.include_decorations = v
+        save_state(st)
         save_state(st)
         item.refresh_tooltip()
 
